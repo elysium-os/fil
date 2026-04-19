@@ -202,16 +202,14 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
         }
 
         clen_tree_t clen_tree = {};
-        result = build_clen_tree(&clen_tree, clen_lengths, CLEN_ALPHABET_MAX_SIZE);
-        if(result != FIL_RESULT_OK) {
+        if((result = build_clen_tree(&clen_tree, clen_lengths, CLEN_ALPHABET_MAX_SIZE)) != FIL_RESULT_OK) {
             return result;
         }
 
         size_t total_length_count = hlit + hdist;
         for(size_t i = 0; i < total_length_count;) {
             uint16_t clen_symbol;
-            result = clen_tree_decode(&clen_tree, input_stream, &clen_symbol);
-            if(result != FIL_RESULT_OK) {
+            if((result = clen_tree_decode(&clen_tree, input_stream, &clen_symbol)) != FIL_RESULT_OK) {
                 return FIL_RESULT_OK;
             }
             assert(clen_symbol < 19);
@@ -282,33 +280,34 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
     }
 
     literal_tree_t literal_tree;
-    result = build_literal_tree(&literal_tree, combined_lengths, literal_count);
-    if(result != FIL_RESULT_OK) {
+    if((result = build_literal_tree(&literal_tree, combined_lengths, literal_count)) != FIL_RESULT_OK) {
         return result;
     }
 
     distance_tree_t distance_tree;
     if(dynamic) {
-        result = build_distance_tree(&distance_tree, &combined_lengths[literal_count], distance_count);
-        if(result != FIL_RESULT_OK) {
+        if((result = build_distance_tree(&distance_tree, &combined_lengths[literal_count], distance_count)) != FIL_RESULT_OK) {
             return result;
         }
     }
 
     while(true) {
         uint16_t literal_sym;
-        result = literal_tree_decode(&literal_tree, input_stream, &literal_sym);
-        if(result != FIL_RESULT_OK) {
+        if((result = literal_tree_decode(&literal_tree, input_stream, &literal_sym)) != FIL_RESULT_OK) {
             return result;
         }
 
         if(literal_sym == 256) break;
 
         if(literal_sym < 256) {
-            result = fil_buffer_insert(output_buffer, literal_sym);
-            if(result != FIL_RESULT_OK) {
-                return result;
+            assert(output_buffer->length <= output_buffer->capacity);
+            if(output_buffer->length == output_buffer->capacity) {
+                if((result = fil_buffer_expand(output_buffer, 1)) != FIL_RESULT_OK) {
+                    return result;
+                }
             }
+
+            output_buffer->data[output_buffer->length++] = literal_sym;
             continue;
         }
 
@@ -328,8 +327,7 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
 
         uint16_t distance_sym;
         if(dynamic) {
-            result = distance_tree_decode(&distance_tree, input_stream, &distance_sym);
-            if(result != FIL_RESULT_OK) {
+            if((result = distance_tree_decode(&distance_tree, input_stream, &distance_sym)) != FIL_RESULT_OK) {
                 return result;
             }
         } else {
@@ -360,15 +358,32 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
         }
         size_t extended_distance = g_base_dist[distance_sym] + extra_dist;
 
-        for(size_t i = 0; i < extended_length; i++) {
-            int value = fil_buffer_peek(output_buffer, extended_distance);
-            if(value == -1) {
-                return FIL_RESULT_MALFORMED;
+        if(extended_distance > output_buffer->length) {
+            return FIL_RESULT_MALFORMED;
+        }
+
+        size_t capacity_left = output_buffer->capacity - output_buffer->length;
+        if(capacity_left < extended_length) {
+            if(output_buffer->fn_expand == nullptr) {
+                return FIL_RESULT_NOMEM;
             }
 
-            result = fil_buffer_insert(output_buffer, value);
-            if(result != FIL_RESULT_OK) {
+            if((result = fil_buffer_expand(output_buffer, extended_length - capacity_left)) != FIL_RESULT_OK) {
                 return result;
+            }
+        }
+
+        if(extended_distance == 1) {
+            memset(&output_buffer->data[output_buffer->length], output_buffer->data[output_buffer->length - 1], extended_length);
+            output_buffer->length += extended_length;
+        } else {
+            for(size_t i = 0; i < extended_length;) {
+                size_t copy_length = extended_length - i;
+                if(extended_distance < copy_length) copy_length = extended_distance;
+
+                memcpy(&output_buffer->data[output_buffer->length], &output_buffer->data[output_buffer->length - extended_distance], copy_length);
+                output_buffer->length += copy_length;
+                i += copy_length;
             }
         }
     }
@@ -377,30 +392,27 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
 }
 
 static FilResult deflate_block_uncompressed(FilBitStream *input_stream, FilBuffer *output_buffer) {
-    uint8_t length_low;
-    if(fil_bitstream_read_aligned_u8(input_stream, &length_low) != 0) {
+    uint16_t length;
+    if(fil_bitstream_read_aligned_u16(input_stream, &length) != 0) {
         return FIL_RESULT_UNEXPECTED_EOF;
     }
 
-    uint8_t length_high;
-    if(fil_bitstream_read_aligned_u8(input_stream, &length_high) != 0) {
+    uint16_t negated_length;
+    if(fil_bitstream_read_aligned_u16(input_stream, &negated_length) != 0) {
         return FIL_RESULT_UNEXPECTED_EOF;
     }
 
-    uint8_t negated_length_low;
-    if(fil_bitstream_read_aligned_u8(input_stream, &negated_length_low) != 0) {
-        return FIL_RESULT_UNEXPECTED_EOF;
-    }
-
-    uint8_t negated_length_high;
-    if(fil_bitstream_read_aligned_u8(input_stream, &negated_length_high) != 0) {
-        return FIL_RESULT_UNEXPECTED_EOF;
-    }
-
-    uint16_t length = (length_low | (uint16_t) length_high << 8);
-    uint16_t negated_length = (negated_length_low | (uint16_t) negated_length_high << 8);
     if(length != (~negated_length & 0xFFFF)) {
         return FIL_RESULT_CHECKSUM_MISMATCH;
+    }
+
+    if(output_buffer->capacity < output_buffer->length + length) {
+        size_t diff = output_buffer->length + length - output_buffer->capacity;
+
+        FilResult result = fil_buffer_expand(output_buffer, diff);
+        if(result != FIL_RESULT_OK) {
+            return result;
+        }
     }
 
     for(size_t i = 0; i < length; i++) {
@@ -409,7 +421,7 @@ static FilResult deflate_block_uncompressed(FilBitStream *input_stream, FilBuffe
             return FIL_RESULT_UNEXPECTED_EOF;
         }
 
-        fil_buffer_insert(output_buffer, byte);
+        output_buffer->data[output_buffer->length++] = byte;
     }
 
     return FIL_RESULT_OK;
