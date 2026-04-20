@@ -8,7 +8,7 @@ local options = {
 }
 
 -- Tools
-local cc = c.get_clang()
+local cc = c.get_compiler()
 if cc == nil then
     error("No viable C compiler found")
 end
@@ -29,9 +29,6 @@ local c_flags = {
     "-Wvla",
     "-Wimplicit-fallthrough",
     "-Wmissing-field-initializers",
-
-    -- Misc
-    "-fdiagnostics-color=always",
 
     -- Build Type Flags
     table.unpack(({
