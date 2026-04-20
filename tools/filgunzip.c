@@ -1,8 +1,11 @@
 #include "fil.h"
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static const char *g_error_messages[] = {
     [FIL_RESULT_OK] = "OK",
@@ -24,39 +27,31 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    FILE *input_file = fopen(argv[1], "rb");
-    if(input_file == nullptr) {
+    int fd = open(argv[1], O_RDONLY);
+    if(fd < 0) {
         fprintf(stderr, "error: cannot open '%s'\n", argv[1]);
         return 1;
     }
 
     struct stat st;
-    if(fstat(fileno(input_file), &st) != 0) {
+    if(fstat(fd, &st) != 0) {
         fprintf(stderr, "error: cannot stat '%s'\n", argv[1]);
-        fclose(input_file);
+        close(fd);
         return 1;
     }
 
-    void *data = malloc(st.st_size);
-    if(!data) {
-        fprintf(stderr, "error: out of memory\n");
-        fclose(input_file);
+    void *data = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if(data == MAP_FAILED) {
+        fprintf(stderr, "error: cannot mmap '%s'\n", argv[1]);
         return 1;
     }
-
-    if(fread(data, st.st_size, 1, input_file) != 1) {
-        fprintf(stderr, "error: failed to read '%s'\n", argv[1]);
-        free(data);
-        fclose(input_file);
-        return 1;
-    }
-    fclose(input_file);
 
     FilStream stream = fil_stream_new(data, st.st_size);
     FilBuffer output = fil_buffer_new_dynamic(expand);
 
     FilResult result = fil_gzip_decompress(&stream, &output);
-    free(data);
+    munmap(data, st.st_size);
 
     if(result != FIL_RESULT_OK) {
         fprintf(stderr, "error: decompression failed `%s`\n", g_error_messages[result]);
