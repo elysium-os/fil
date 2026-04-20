@@ -462,10 +462,10 @@ FilResult fil_deflate(FilBitStream *input_stream, FilBuffer *output_buffer) {
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     static uint8_t output_data[OUTPUT_BUFFER_SIZE];
 
-    Stream stream = fil_stream_new(data, size);
-    BitStream bit_stream = fil_bitstream_new(&stream);
+    FilStream stream = fil_stream_new(data, size);
+    FilBitStream bit_stream = fil_bitstream_new(&stream);
 
-    Buffer output_buffer = (Buffer) { .capacity = OUTPUT_BUFFER_SIZE, .length = 0, .data = output_data };
+    FilBuffer output_buffer = (FilBuffer) { .capacity = OUTPUT_BUFFER_SIZE, .length = 0, .data = output_data };
 
     FilResult result = fil_deflate(&bit_stream, &output_buffer);
 
