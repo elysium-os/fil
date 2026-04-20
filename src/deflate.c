@@ -115,10 +115,9 @@ static FilResult build_distance_tree(distance_tree_t *tree, uint8_t *lengths, si
     return build_huffman_tree(tree->length_counts, tree->sorted_symbols, DISTANCE_ALPHABET_MAX_SIZE, lengths, symbol_count);
 }
 
-static FilResult huffman_tree_decode(const uint8_t *length_counts, const uint16_t *sorted_symbols, FilBitStream *input_stream, uint16_t *out_symbol) {
+static FilResult huffman_tree_decode(const uint8_t *length_counts, const uint16_t *sorted_symbols, size_t max_code_size, FilBitStream *input_stream, uint16_t *out_symbol) {
     size_t bits;
-    size_t available_bits = fil_bitstream_peek(input_stream, 15, &bits);
-
+    size_t available_bits = fil_bitstream_peek(input_stream, max_code_size, &bits);
     if(available_bits == 0) {
         return FIL_RESULT_UNEXPECTED_EOF;
     }
@@ -151,15 +150,15 @@ static FilResult huffman_tree_decode(const uint8_t *length_counts, const uint16_
 }
 
 static FilResult clen_tree_decode(const clen_tree_t *tree, FilBitStream *input_stream, uint16_t *out_symbol) {
-    return huffman_tree_decode(tree->length_counts, tree->sorted_symbols, input_stream, out_symbol);
+    return huffman_tree_decode(tree->length_counts, tree->sorted_symbols, MAX_CLEN_CODE_LENGTH, input_stream, out_symbol);
 }
 
 static FilResult literal_tree_decode(const literal_tree_t *tree, FilBitStream *input_stream, uint16_t *out_symbol) {
-    return huffman_tree_decode(tree->length_counts, tree->sorted_symbols, input_stream, out_symbol);
+    return huffman_tree_decode(tree->length_counts, tree->sorted_symbols, MAX_CODE_LENGTH, input_stream, out_symbol);
 }
 
 static FilResult distance_tree_decode(const distance_tree_t *tree, FilBitStream *input_stream, uint16_t *out_symbol) {
-    return huffman_tree_decode(tree->length_counts, tree->sorted_symbols, input_stream, out_symbol);
+    return huffman_tree_decode(tree->length_counts, tree->sorted_symbols, MAX_CODE_LENGTH, input_stream, out_symbol);
 }
 
 static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stream, FilBuffer *output_buffer) {
@@ -210,9 +209,10 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
         for(size_t i = 0; i < total_length_count;) {
             uint16_t clen_symbol;
             if((result = clen_tree_decode(&clen_tree, input_stream, &clen_symbol)) != FIL_RESULT_OK) {
-                return FIL_RESULT_OK;
+                return result;
             }
-            assert(clen_symbol < 19);
+
+            if(clen_symbol >= 19) return FIL_RESULT_MALFORMED;
 
             switch(clen_symbol) {
                 case 0 ... 15: combined_lengths[i++] = clen_symbol; break;
