@@ -13,12 +13,12 @@
 
 static FilResult gzip_decompress_member(FilStream *input_stream, FilBuffer *output_buffer) {
     uint8_t id_1;
-    if(fil_stream_read_u8(input_stream, &id_1) != 0) {
+    if(!fil_stream_read_u8(input_stream, &id_1)) {
         return FIL_RESULT_UNEXPECTED_EOF;
     }
 
     uint8_t id_2;
-    if(fil_stream_read_u8(input_stream, &id_2) != 0) {
+    if(!fil_stream_read_u8(input_stream, &id_2)) {
         return FIL_RESULT_UNEXPECTED_EOF;
     }
 
@@ -27,36 +27,45 @@ static FilResult gzip_decompress_member(FilStream *input_stream, FilBuffer *outp
     }
 
     uint8_t cm;
-    if(fil_stream_read_u8(input_stream, &cm) != 0) {
+    if(!fil_stream_read_u8(input_stream, &cm)) {
         return FIL_RESULT_UNEXPECTED_EOF;
     }
 
     uint8_t flg;
-    if(fil_stream_read_u8(input_stream, &flg) != 0) {
+    if(!fil_stream_read_u8(input_stream, &flg)) {
         return FIL_RESULT_UNEXPECTED_EOF;
     }
 
     // Skip mtime
-    fil_stream_advance(input_stream, 4);
+    if(!fil_stream_advance(input_stream, 4)) {
+        return FIL_RESULT_UNEXPECTED_EOF;
+    }
 
     // Skip XFL
-    fil_stream_advance(input_stream, 1);
+    if(!fil_stream_advance(input_stream, 1)) {
+        return FIL_RESULT_UNEXPECTED_EOF;
+    }
 
     // Skip OS
-    fil_stream_advance(input_stream, 1);
+    if(!fil_stream_advance(input_stream, 1)) {
+        return FIL_RESULT_UNEXPECTED_EOF;
+    }
 
     if((flg & FLG_FEXTRA) != 0) {
         uint16_t xlen;
-        if(fil_stream_read_u16(input_stream, &xlen) != 0) {
+        if(!fil_stream_read_u16(input_stream, &xlen)) {
             return FIL_RESULT_UNEXPECTED_EOF;
         }
-        fil_stream_advance(input_stream, xlen);
+
+        if(!fil_stream_advance(input_stream, xlen)) {
+            return FIL_RESULT_UNEXPECTED_EOF;
+        }
     }
 
     if((flg & FLG_FNAME) != 0) {
         while(true) {
             uint8_t byte;
-            if(fil_stream_read_u8(input_stream, &byte) != 0) {
+            if(!fil_stream_read_u8(input_stream, &byte)) {
                 return FIL_RESULT_UNEXPECTED_EOF;
             }
             if(byte == '\0') break;
@@ -66,7 +75,7 @@ static FilResult gzip_decompress_member(FilStream *input_stream, FilBuffer *outp
     if((flg & FLG_FCOMMENT) != 0) {
         while(true) {
             uint8_t byte;
-            if(fil_stream_read_u8(input_stream, &byte) != 0) {
+            if(!fil_stream_read_u8(input_stream, &byte)) {
                 return FIL_RESULT_UNEXPECTED_EOF;
             }
             if(byte == '\0') break;
@@ -75,7 +84,7 @@ static FilResult gzip_decompress_member(FilStream *input_stream, FilBuffer *outp
 
     if((flg & FLG_FHCRC) != 0) {
         uint16_t crc16;
-        if(fil_stream_read_u16(input_stream, &crc16) != 0) {
+        if(!fil_stream_read_u16(input_stream, &crc16)) {
             return FIL_RESULT_UNEXPECTED_EOF;
         }
     }

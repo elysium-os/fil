@@ -135,7 +135,7 @@ static FilResult huffman_tree_decode(const uint8_t *length_counts, const uint16_
 
         size_t count = length_counts[length];
         if(code - first_code < count) {
-            if(fil_bitstream_advance(input_stream, length) != 0) {
+            if(!fil_bitstream_advance(input_stream, length)) {
                 return FIL_RESULT_UNEXPECTED_EOF;
             }
 
@@ -171,17 +171,17 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
     size_t distance_count = DISTANCE_ALPHABET_MAX_SIZE;
     if(dynamic) {
         size_t hlit;
-        if(fil_bitstream_read(input_stream, 5, &hlit) != 0) {
+        if(!fil_bitstream_read(input_stream, 5, &hlit)) {
             return FIL_RESULT_UNEXPECTED_EOF;
         }
 
         size_t hdist;
-        if(fil_bitstream_read(input_stream, 5, &hdist) != 0) {
+        if(!fil_bitstream_read(input_stream, 5, &hdist)) {
             return FIL_RESULT_UNEXPECTED_EOF;
         }
 
         size_t hclen;
-        if(fil_bitstream_read(input_stream, 4, &hclen) != 0) {
+        if(!fil_bitstream_read(input_stream, 4, &hclen)) {
             return FIL_RESULT_UNEXPECTED_EOF;
         }
 
@@ -192,7 +192,7 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
         uint8_t clen_lengths[CLEN_ALPHABET_MAX_SIZE] = {};
         for(size_t i = 0; i < hclen; i++) {
             size_t length;
-            if(fil_bitstream_read(input_stream, 3, &length) != 0) {
+            if(!fil_bitstream_read(input_stream, 3, &length)) {
                 return FIL_RESULT_UNEXPECTED_EOF;
             }
 
@@ -218,7 +218,7 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
                 case 0 ... 15: combined_lengths[i++] = clen_symbol; break;
                 case 16:       {
                     size_t count;
-                    if(fil_bitstream_read(input_stream, 2, &count) != 0) {
+                    if(!fil_bitstream_read(input_stream, 2, &count)) {
                         return FIL_RESULT_UNEXPECTED_EOF;
                     }
 
@@ -238,7 +238,7 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
                 }
                 case 17: {
                     size_t count;
-                    if(fil_bitstream_read(input_stream, 3, &count) != 0) {
+                    if(!fil_bitstream_read(input_stream, 3, &count)) {
                         return FIL_RESULT_UNEXPECTED_EOF;
                     }
 
@@ -253,7 +253,7 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
                 }
                 case 18: {
                     size_t count;
-                    if(fil_bitstream_read(input_stream, 7, &count) != 0) {
+                    if(!fil_bitstream_read(input_stream, 7, &count)) {
                         return FIL_RESULT_UNEXPECTED_EOF;
                     }
 
@@ -319,7 +319,7 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
         size_t extra_length = 0;
         size_t extra_length_bits = g_length_extra_bits[literal_sym - 257];
         if(extra_length_bits > 0) {
-            if(fil_bitstream_read(input_stream, extra_length_bits, &extra_length) != 0) {
+            if(!fil_bitstream_read(input_stream, extra_length_bits, &extra_length)) {
                 return FIL_RESULT_UNEXPECTED_EOF;
             }
         }
@@ -332,7 +332,7 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
             }
         } else {
             size_t raw_distance_sym;
-            if(fil_bitstream_read(input_stream, 5, &raw_distance_sym) != 0) {
+            if(!fil_bitstream_read(input_stream, 5, &raw_distance_sym)) {
                 return FIL_RESULT_UNEXPECTED_EOF;
             }
 
@@ -352,7 +352,7 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
         size_t extra_dist = 0;
         size_t extra_dist_bits = g_dist_extra_bits[distance_sym];
         if(extra_dist_bits > 0) {
-            if(fil_bitstream_read(input_stream, extra_dist_bits, &extra_dist) != 0) {
+            if(!fil_bitstream_read(input_stream, extra_dist_bits, &extra_dist)) {
                 return FIL_RESULT_UNEXPECTED_EOF;
             }
         }
@@ -393,12 +393,12 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
 
 static FilResult deflate_block_uncompressed(FilBitStream *input_stream, FilBuffer *output_buffer) {
     uint16_t length;
-    if(fil_bitstream_read_aligned_u16(input_stream, &length) != 0) {
+    if(!fil_bitstream_read_aligned_u16(input_stream, &length)) {
         return FIL_RESULT_UNEXPECTED_EOF;
     }
 
     uint16_t negated_length;
-    if(fil_bitstream_read_aligned_u16(input_stream, &negated_length) != 0) {
+    if(!fil_bitstream_read_aligned_u16(input_stream, &negated_length)) {
         return FIL_RESULT_UNEXPECTED_EOF;
     }
 
@@ -430,12 +430,12 @@ static FilResult deflate_block_uncompressed(FilBitStream *input_stream, FilBuffe
 FilResult fil_deflate(FilBitStream *input_stream, FilBuffer *output_buffer) {
     while(true) {
         size_t is_final;
-        if(fil_bitstream_read(input_stream, 1, &is_final) != 0) {
+        if(!fil_bitstream_read(input_stream, 1, &is_final)) {
             return FIL_RESULT_UNEXPECTED_EOF;
         }
 
         size_t block_type;
-        if(fil_bitstream_read(input_stream, 2, &block_type) != 0) {
+        if(!fil_bitstream_read(input_stream, 2, &block_type)) {
             return FIL_RESULT_UNEXPECTED_EOF;
         }
 
