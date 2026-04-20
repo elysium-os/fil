@@ -1,3 +1,4 @@
+#include "fil.h"
 #include "fil_private.h"
 
 #include <assert.h>
@@ -63,4 +64,13 @@ bool fil_stream_read_u32(FilStream *stream, uint32_t *value_out) {
 
 bool fil_stream_read_u64(FilStream *stream, uint64_t *value_out) {
     return fil_stream_read(stream, 8, value_out);
+}
+
+bool fil_stream_read_bytes(FilStream *stream, size_t byte_count, uint8_t *dest_buffer) {
+    if(stream->cursor + byte_count > stream->data_size) return false;
+
+    memcpy(dest_buffer, &stream->data[stream->cursor], byte_count);
+    stream->cursor += byte_count;
+
+    return true;
 }

@@ -1,3 +1,4 @@
+#include "fil.h"
 #include "fil_private.h"
 
 #include <assert.h>
@@ -392,13 +393,15 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
 }
 
 static FilResult deflate_block_uncompressed(FilBitStream *input_stream, FilBuffer *output_buffer) {
+    input_stream->cached_cursor = -1;
+
     uint16_t length;
-    if(!fil_bitstream_read_aligned_u16(input_stream, &length)) {
+    if(!fil_stream_read_u16(input_stream->stream, &length)) {
         return FIL_RESULT_UNEXPECTED_EOF;
     }
 
     uint16_t negated_length;
-    if(!fil_bitstream_read_aligned_u16(input_stream, &negated_length)) {
+    if(!fil_stream_read_u16(input_stream->stream, &negated_length)) {
         return FIL_RESULT_UNEXPECTED_EOF;
     }
 
@@ -415,14 +418,10 @@ static FilResult deflate_block_uncompressed(FilBitStream *input_stream, FilBuffe
         }
     }
 
-    for(size_t i = 0; i < length; i++) {
-        uint8_t byte;
-        if(fil_bitstream_read_aligned_u8(input_stream, &byte) != 0) {
-            return FIL_RESULT_UNEXPECTED_EOF;
-        }
-
-        output_buffer->data[output_buffer->length++] = byte;
+    if(!fil_stream_read_bytes(input_stream->stream, length, &output_buffer->data[output_buffer->length])) {
+        return FIL_RESULT_UNEXPECTED_EOF;
     }
+    output_buffer->length += length;
 
     return FIL_RESULT_OK;
 }

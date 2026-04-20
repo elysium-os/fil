@@ -81,13 +81,3 @@ bool fil_bitstream_read(FilBitStream *bitstream, size_t bit_count, size_t *value
     if(fil_bitstream_peek(bitstream, bit_count, value_out) < bit_count) return false;
     return fil_bitstream_advance(bitstream, bit_count);
 }
-
-bool fil_bitstream_read_aligned_u16(FilBitStream *bitstream, uint16_t *value_out) {
-    bitstream->cached_cursor = -1;
-    return fil_stream_read_u16(bitstream->stream, value_out);
-}
-
-bool fil_bitstream_read_aligned_u8(FilBitStream *bitstream, uint8_t *value_out) {
-    bitstream->cached_cursor = -1;
-    return fil_stream_read_u8(bitstream->stream, value_out);
-}
