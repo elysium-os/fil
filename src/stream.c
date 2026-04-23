@@ -2,14 +2,12 @@
 #include "fil_private.h"
 
 #include <assert.h>
-#include <stddef.h>
-#include <string.h>
 
 static bool fil_stream_peek(FilStream *stream, size_t byte_count, size_t byte_offset, void *value_out) {
     if(stream->cursor + byte_offset + byte_count > stream->data_size) return false;
 
     const void *ptr = stream->data + stream->cursor + byte_offset;
-    memcpy(value_out, ptr, byte_count);
+    __builtin_memcpy(value_out, ptr, byte_count);
 
     return true;
 }
@@ -69,7 +67,7 @@ bool fil_stream_read_u64(FilStream *stream, uint64_t *value_out) {
 bool fil_stream_read_bytes(FilStream *stream, size_t byte_count, uint8_t *dest_buffer) {
     if(stream->cursor + byte_count > stream->data_size) return false;
 
-    memcpy(dest_buffer, &stream->data[stream->cursor], byte_count);
+    __builtin_memcpy(dest_buffer, &stream->data[stream->cursor], byte_count);
     stream->cursor += byte_count;
 
     return true;

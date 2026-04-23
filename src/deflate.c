@@ -2,7 +2,6 @@
 #include "fil_private.h"
 
 #include <assert.h>
-#include <string.h>
 
 #define MAX_CODE_LENGTH 15
 #define MAX_CLEN_CODE_LENGTH 7
@@ -375,14 +374,14 @@ static FilResult deflate_block_compressed(bool dynamic, FilBitStream *input_stre
         }
 
         if(extended_distance == 1) {
-            memset(&output_buffer->data[output_buffer->length], output_buffer->data[output_buffer->length - 1], extended_length);
+            __builtin_memset(&output_buffer->data[output_buffer->length], output_buffer->data[output_buffer->length - 1], extended_length);
             output_buffer->length += extended_length;
         } else {
             for(size_t i = 0; i < extended_length;) {
                 size_t copy_length = extended_length - i;
                 if(extended_distance < copy_length) copy_length = extended_distance;
 
-                memcpy(&output_buffer->data[output_buffer->length], &output_buffer->data[output_buffer->length - extended_distance], copy_length);
+                __builtin_memcpy(&output_buffer->data[output_buffer->length], &output_buffer->data[output_buffer->length - extended_distance], copy_length);
                 output_buffer->length += copy_length;
                 i += copy_length;
             }
