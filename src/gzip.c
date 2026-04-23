@@ -1,4 +1,7 @@
+#include "fil.h"
 #include "fil_private.h"
+
+#include <stdint.h>
 
 #define ID_1 0x1F
 #define ID_2 0x8B
@@ -99,6 +102,21 @@ static FilResult gzip_decompress_member(FilStream *input_stream, FilBuffer *outp
             break;
         }
         default: return FIL_RESULT_UNSUPPORTED_FEATURE;
+    }
+
+    uint32_t crc32;
+    if(!fil_stream_read_u32(input_stream, &crc32)) {
+        return FIL_RESULT_UNEXPECTED_EOF;
+    }
+
+    uint32_t isize;
+    if(!fil_stream_read_u32(input_stream, &isize)) {
+        return FIL_RESULT_UNEXPECTED_EOF;
+    }
+
+    uint32_t got_crc32 = fil_crc32(output_buffer->data, output_buffer->length);
+    if(crc32 != got_crc32) {
+        return FIL_RESULT_CHECKSUM_MISMATCH;
     }
 
     return FIL_RESULT_OK;

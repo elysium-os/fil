@@ -78,3 +78,8 @@ FilResult fil_deflate(FilBitStream *input_stream, FilBuffer *output_buffer);
  * Decompress a GZIP in `input_stream` to `output_buffer`.
  */
 FilResult fil_gzip_decompress(FilStream *input_stream, FilBuffer *output_buffer);
+
+/**
+ * Compute CRC32 for data.
+ */
+uint32_t fil_crc32(const void *data, size_t data_length);
