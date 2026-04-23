@@ -1,7 +1,6 @@
 #include "fil_private.h"
 
 #include <assert.h>
-#include <stddef.h>
 
 #define BYTE_SIZE 8
 #define MAX_BITS (sizeof(size_t) * BYTE_SIZE)

@@ -1,7 +1,4 @@
-#include "fil.h"
 #include "fil_private.h"
-
-#include <stdint.h>
 
 #define ID_1 0x1F
 #define ID_2 0x8B
